@@ -1,0 +1,53 @@
+# ── Python ────────────────────────────────────────────────────────────────────
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.egg
+*.egg-info/
+dist/
+build/
+.eggs/
+*.so
+.Python
+
+# Virtual environments
+.venv/
+venv/
+env/
+ENV/
+
+# pyviz output artifacts (generated, not source)
+pyviz-out/
+**/pyviz-out/
+conftest_pyviz_tracer.py       # auto-injected tracer; never committed
+check_graph.py                 # scratch debug script
+
+# pytest / coverage
+.pytest_cache/
+.coverage
+htmlcov/
+coverage.xml
+*.cover
+
+# ── Node / Next.js ────────────────────────────────────────────────────────────
+viewer/node_modules/
+viewer/.next/
+viewer/out/
+viewer/.vercel/
+
+# Local env files (keep .env.example, ignore real secrets)
+viewer/.env
+viewer/.env.local
+viewer/.env.development.local
+viewer/.env.test.local
+viewer/.env.production.local
+
+# ── OS / editor ───────────────────────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+.idea/
+.vscode/
+*.iml
