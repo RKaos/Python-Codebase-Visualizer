@@ -3,8 +3,8 @@
 > A hybrid CLI + web tool that ingests a Python codebase and emits a navigable
 > call/dependency graph an engineer onboarding to that codebase can actually trust.
 
-**Live viewer:** https://pyviz-visualizer.vercel.app  
-**Sample output:** FastAPI repo graph — see `sample-output/` in the repo
+**Live viewer:** https://python-codebase-visualizer-d2xur1wgc-rohaan-khalids-projects.vercel.app  
+**Sample output:** drop any `graph.json` produced by `pyviz analyze` into the viewer
 
 ---
 
@@ -57,7 +57,7 @@ pyviz analyze ./your-repo  →  ./pyviz-out/graph.json
 **Requirements:** Python ≥ 3.10
 
 ```bash
-git clone https://github.com/<your-handle>/pyviz-visualizer
+git clone https://github.com/RKaos/Python-Codebase-Visualizer
 cd pyviz-visualizer
 pip install -e .           # installs the `pyviz` command
 
