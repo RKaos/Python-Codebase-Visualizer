@@ -160,6 +160,9 @@ export default function GraphView({
     const visible = new Set<string>();
 
     for (const gNode of document.nodes) {
+      // __init__ constructor methods are implementation noise — hide them
+      if (gNode.name === "__init__" && gNode.kind === "method") continue;
+
       // Apply kind filter
       if (!filters.nodeKinds.has(gNode.kind)) continue;
 
