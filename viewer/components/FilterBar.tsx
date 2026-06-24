@@ -36,6 +36,17 @@ const PROVENANCE_STYLES: Record<string, string> = {
   both: "bg-emerald-50 text-emerald-700 border border-emerald-200",
 };
 
+const ABBREV: Record<string, string> = {
+  package: "pkg",
+  function: "fn",
+  coroutine: "coro",
+  variable: "var",
+  external: "ext",
+  instantiates: "inst.",
+  decorates: "deco.",
+  "dynamic-unresolved": "dyn?",
+};
+
 function ToggleChip({
   label,
   active,
@@ -50,12 +61,13 @@ function ToggleChip({
   return (
     <button
       onClick={onClick}
-      className={`px-2 py-0.5 rounded text-xs font-medium transition-opacity cursor-pointer select-none
+      title={label}
+      className={`px-1.5 py-px rounded text-[11px] font-medium transition-opacity cursor-pointer select-none whitespace-nowrap
         ${colorClass ?? "bg-gray-100 text-gray-700"}
-        ${active ? "opacity-100 ring-2 ring-offset-1 ring-current" : "opacity-40"}
+        ${active ? "opacity-100 ring-1 ring-offset-1 ring-current" : "opacity-35"}
       `}
     >
-      {label}
+      {ABBREV[label] ?? label}
     </button>
   );
 }
@@ -85,84 +97,48 @@ export default function FilterBar({ filters, onChange, stats }: FilterBarProps) 
     onChange({ ...filters, confidences: next });
   }
 
+  const sep = <div className="h-3 w-px bg-border flex-shrink-0" />;
+  const label = (text: string) => (
+    <span className="text-[10px] text-muted-foreground font-semibold uppercase tracking-wide flex-shrink-0">
+      {text}
+    </span>
+  );
+
   return (
-    <div className="flex flex-wrap items-center gap-4 px-4 py-2 bg-white border-b text-sm">
-      {/* Node kinds */}
-      <div className="flex items-center gap-1.5">
-        <span className="text-xs text-muted-foreground font-semibold uppercase tracking-wide mr-1">
-          Nodes
-        </span>
+    <div className="flex items-center gap-2 px-3 py-1 bg-white border-b overflow-x-auto">
+      {label("Nodes")}
+      <div className="flex items-center gap-1">
         {ALL_NODE_KINDS.map((k) => (
-          <ToggleChip
-            key={k}
-            label={k}
-            active={filters.nodeKinds.has(k)}
-            onClick={() => toggleNodeKind(k)}
-          />
+          <ToggleChip key={k} label={k} active={filters.nodeKinds.has(k)} onClick={() => toggleNodeKind(k)} />
         ))}
       </div>
 
-      <div className="h-4 w-px bg-border" />
+      {sep}
 
-      {/* Edge kinds — "imported ≠ called" is a first-class UI control (§9.2) */}
-      <div className="flex items-center gap-1.5">
-        <span className="text-xs text-muted-foreground font-semibold uppercase tracking-wide mr-1">
-          Edges
-        </span>
+      {label("Edges")}
+      <div className="flex items-center gap-1">
         {ALL_EDGE_KINDS.map((k) => (
-          <ToggleChip
-            key={k}
-            label={k}
-            active={filters.edgeKinds.has(k)}
-            colorClass={EDGE_KIND_COLORS[k]}
-            onClick={() => toggleEdgeKind(k)}
-          />
+          <ToggleChip key={k} label={k} active={filters.edgeKinds.has(k)} colorClass={EDGE_KIND_COLORS[k]} onClick={() => toggleEdgeKind(k)} />
         ))}
       </div>
 
-      <div className="h-4 w-px bg-border" />
+      {sep}
 
-      {/* Provenance — static / runtime / both */}
-      <div className="flex items-center gap-1.5">
-        <span className="text-xs text-muted-foreground font-semibold uppercase tracking-wide mr-1">
-          Provenance
-        </span>
+      {label("Prov.")}
+      <div className="flex items-center gap-1">
         {ALL_PROVENANCES.map((p) => (
-          <ToggleChip
-            key={p}
-            label={p}
-            active={filters.provenances.has(p)}
-            colorClass={PROVENANCE_STYLES[p]}
-            onClick={() => toggleProvenance(p)}
-          />
+          <ToggleChip key={p} label={p} active={filters.provenances.has(p)} colorClass={PROVENANCE_STYLES[p]} onClick={() => toggleProvenance(p)} />
         ))}
       </div>
 
-      <div className="h-4 w-px bg-border" />
+      {sep}
 
-      {/* Confidence */}
-      <div className="flex items-center gap-1.5">
-        <span className="text-xs text-muted-foreground font-semibold uppercase tracking-wide mr-1">
-          Confidence
-        </span>
+      {label("Conf.")}
+      <div className="flex items-center gap-1">
         {ALL_CONFIDENCES.map((c) => (
-          <ToggleChip
-            key={c}
-            label={c === "dynamic-unresolved" ? "dynamic?" : c}
-            active={filters.confidences.has(c)}
-            onClick={() => toggleConfidence(c)}
-          />
+          <ToggleChip key={c} label={c} active={filters.confidences.has(c)} onClick={() => toggleConfidence(c)} />
         ))}
       </div>
-
-      {stats && (
-        <>
-          <div className="h-4 w-px bg-border" />
-          <span className="text-xs text-muted-foreground">
-            {stats.n_nodes ?? 0} nodes · {stats.n_edges ?? 0} edges
-          </span>
-        </>
-      )}
     </div>
   );
 }
