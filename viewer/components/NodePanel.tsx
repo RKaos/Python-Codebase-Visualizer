@@ -1,7 +1,7 @@
 "use client";
 
 import React from "react";
-import type { GraphDocument, GraphNode, GraphEdge } from "@/lib/types";
+import type { GraphDocument, GraphNode, GraphEdge, NodeAttributes } from "@/lib/types";
 
 interface NodePanelProps {
   node: GraphNode | null;
@@ -21,26 +21,21 @@ const KIND_ICONS: Record<string, string> = {
   external: "🌐",
 };
 
-const PROVENANCE_BADGES: Record<string, string> = {
-  static: "bg-indigo-100 text-indigo-700",
-  runtime: "bg-amber-100 text-amber-700",
-  both: "bg-emerald-100 text-emerald-700",
+const EDGE_KIND_COLORS: Record<string, string> = {
+  imports: "bg-blue-100 text-blue-700",
+  calls: "bg-purple-100 text-purple-700",
+  instantiates: "bg-indigo-100 text-indigo-700",
+  inherits: "bg-orange-100 text-orange-700",
+  decorates: "bg-pink-100 text-pink-700",
+  defines: "bg-gray-100 text-gray-600",
 };
 
-export default function NodePanel({
-  node,
-  document,
-  onClose,
-  onSelectNode,
-}: NodePanelProps) {
+const DEPENDENCY_KINDS = ["calls", "imports", "instantiates", "inherits", "decorates"] as const;
+
+export default function NodePanel({ node, document, onClose }: NodePanelProps) {
   if (!node) return null;
 
-  const nodeMap = React.useMemo(
-    () => new Map(document.nodes.map((n) => [n.id, n])),
-    [document]
-  );
-
-  const neighbors = React.useMemo(() => {
+  const { inbound, outbound } = React.useMemo(() => {
     const inbound: GraphEdge[] = [];
     const outbound: GraphEdge[] = [];
     for (const e of document.edges) {
@@ -50,15 +45,36 @@ export default function NodePanel({
     return { inbound, outbound };
   }, [document, node.id]);
 
+  // Fan-in/out exclude structural 'defines' edges (parent→child ownership)
+  const fanIn = inbound.filter((e) => e.kind !== "defines").length;
+  const fanOut = outbound.filter((e) => e.kind !== "defines").length;
+  const loc = node.line_start > 0 ? node.line_end - node.line_start + 1 : 0;
+
+  // Edge breakdown by kind (only rows with at least one edge)
+  const kindRows = DEPENDENCY_KINDS.map((k) => ({
+    kind: k,
+    in: inbound.filter((e) => e.kind === k).length,
+    out: outbound.filter((e) => e.kind === k).length,
+  })).filter((r) => r.in > 0 || r.out > 0);
+
+  // Provenance summary across all non-defines edges
+  const allDepEdges = [...inbound, ...outbound].filter((e) => e.kind !== "defines");
+  const provCounts = {
+    static: allDepEdges.filter((e) => e.provenance === "static").length,
+    runtime: allDepEdges.filter((e) => e.provenance === "runtime").length,
+    both: allDepEdges.filter((e) => e.provenance === "both").length,
+  };
+
+  const isHotspot = fanIn >= 8;
   const attrs = node.attributes;
 
   return (
-    <div className="w-80 h-full flex flex-col bg-white border-l shadow-lg overflow-hidden">
+    <div className="w-72 h-full flex flex-col bg-white border-l shadow-lg overflow-hidden">
       {/* Header */}
       <div className="flex items-start justify-between p-4 border-b">
         <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2">
-            <span className="text-lg">{KIND_ICONS[node.kind] ?? "◆"}</span>
+          <div className="flex items-center gap-2 flex-wrap">
+            <span>{KIND_ICONS[node.kind] ?? "◆"}</span>
             <span className="font-semibold text-sm truncate">{node.name}</span>
             <span className="text-xs px-1.5 py-0.5 rounded bg-muted text-muted-foreground">
               {node.kind}
@@ -68,14 +84,13 @@ export default function NodePanel({
         </div>
         <button
           onClick={onClose}
-          className="ml-2 text-muted-foreground hover:text-foreground text-lg leading-none"
-          aria-label="Close panel"
+          className="ml-2 text-muted-foreground hover:text-foreground text-lg leading-none flex-shrink-0"
+          aria-label="Close"
         >
           ×
         </button>
       </div>
 
-      {/* Scrollable body */}
       <div className="flex-1 overflow-y-auto">
         {/* Location */}
         <Section title="Location">
@@ -87,41 +102,133 @@ export default function NodePanel({
         </Section>
 
         {/* Attributes */}
-        <Section title="Attributes">
-          {attrs.is_async && <Badge label="async" color="bg-blue-100 text-blue-700" />}
-          {attrs.is_abstract && <Badge label="abstract" color="bg-orange-100 text-orange-700" />}
-          {attrs.framework_entrypoint && (
-            <Badge label="framework_entrypoint" color="bg-pink-100 text-pink-700" />
-          )}
-          {attrs.method_kind && (
-            <Badge label={attrs.method_kind} color="bg-purple-100 text-purple-700" />
-          )}
-          {attrs.all_is_dynamic && (
-            <Badge label="__all__ dynamic" color="bg-yellow-100 text-yellow-700" />
-          )}
-          {attrs.decorators && attrs.decorators.length > 0 && (
-            <div className="mt-1">
-              <p className="text-xs text-muted-foreground mb-1">Decorators:</p>
-              <div className="flex flex-wrap gap-1">
-                {attrs.decorators.map((d) => (
-                  <span
-                    key={d}
-                    className="text-xs px-1.5 py-0.5 rounded bg-gray-100 text-gray-700 font-mono"
-                  >
-                    @{d}
-                  </span>
-                ))}
+        {hasAttrs(attrs) && (
+          <Section title="Attributes">
+            <div className="flex flex-wrap gap-1 mb-2">
+              {attrs.is_async && <Badge label="async" color="bg-blue-100 text-blue-700" />}
+              {attrs.is_abstract && <Badge label="abstract" color="bg-orange-100 text-orange-700" />}
+              {attrs.framework_entrypoint && (
+                <Badge label="entrypoint" color="bg-pink-100 text-pink-700" />
+              )}
+              {attrs.method_kind && (
+                <Badge label={attrs.method_kind} color="bg-purple-100 text-purple-700" />
+              )}
+              {attrs.all_is_dynamic && (
+                <Badge label="__all__ dynamic" color="bg-yellow-100 text-yellow-700" />
+              )}
+            </div>
+
+            {attrs.decorators && attrs.decorators.length > 0 && (
+              <div className="mb-2">
+                <p className="text-[10px] text-muted-foreground uppercase tracking-wide mb-1">
+                  Decorators
+                </p>
+                <div className="flex flex-wrap gap-1">
+                  {attrs.decorators.map((d) => (
+                    <span
+                      key={d}
+                      className="text-xs px-1.5 py-0.5 rounded bg-gray-100 text-gray-700 font-mono"
+                    >
+                      @{d}
+                    </span>
+                  ))}
+                </div>
               </div>
+            )}
+
+            {attrs.mro && attrs.mro.length > 1 && (
+              <div>
+                <p className="text-[10px] text-muted-foreground uppercase tracking-wide mb-1">
+                  MRO
+                </p>
+                <ol className="text-xs font-mono space-y-0.5">
+                  {attrs.mro.map((m, i) => (
+                    <li key={m} className="flex gap-1.5 text-gray-600">
+                      <span className="text-gray-400 w-4 text-right shrink-0">{i + 1}.</span>
+                      <span className="truncate">{m}</span>
+                    </li>
+                  ))}
+                </ol>
+              </div>
+            )}
+          </Section>
+        )}
+
+        {/* Metrics */}
+        <Section title="Metrics">
+          {isHotspot && (
+            <div className="mb-2 text-xs bg-red-50 text-red-700 rounded px-2 py-1">
+              ⚠ High coupling — {fanIn} things depend on this
             </div>
           )}
-          {attrs.mro && attrs.mro.length > 0 && (
-            <div className="mt-1">
-              <p className="text-xs text-muted-foreground mb-1">MRO:</p>
-              <ol className="text-xs font-mono list-decimal list-inside space-y-0.5">
-                {attrs.mro.map((m) => (
-                  <li key={m} className="text-gray-600">{m}</li>
-                ))}
-              </ol>
+
+          {/* Fan-in / Fan-out / LOC */}
+          <div className={`grid gap-2 mb-3 ${loc > 0 ? "grid-cols-3" : "grid-cols-2"}`}>
+            <Metric label="Fan-in" value={fanIn} hint="other nodes that depend on this" />
+            <Metric label="Fan-out" value={fanOut} hint="nodes this depends on" />
+            {loc > 0 && <Metric label="LOC" value={loc} hint="lines of code" />}
+          </div>
+
+          {/* Edge kind breakdown */}
+          {kindRows.length > 0 && (
+            <div className="mb-3">
+              <p className="text-[10px] text-muted-foreground uppercase tracking-wide mb-1.5">
+                Edge breakdown
+              </p>
+              <table className="w-full text-xs border-collapse">
+                <thead>
+                  <tr>
+                    <th className="text-left font-normal text-muted-foreground pb-1">Kind</th>
+                    <th className="text-right font-normal text-blue-500 pb-1">In</th>
+                    <th className="text-right font-normal text-purple-500 pb-1">Out</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {kindRows.map((r) => (
+                    <tr key={r.kind} className="border-t border-gray-50">
+                      <td className="py-0.5">
+                        <span
+                          className={`px-1 py-0.5 rounded text-[10px] font-medium ${EDGE_KIND_COLORS[r.kind]}`}
+                        >
+                          {r.kind}
+                        </span>
+                      </td>
+                      <td className="text-right py-0.5 text-blue-700 font-mono">
+                        {r.in || "–"}
+                      </td>
+                      <td className="text-right py-0.5 text-purple-700 font-mono">
+                        {r.out || "–"}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+
+          {/* Analysis trust (provenance) */}
+          {allDepEdges.length > 0 && (
+            <div>
+              <p className="text-[10px] text-muted-foreground uppercase tracking-wide mb-1.5">
+                Analysis trust
+              </p>
+              <div className="flex flex-wrap gap-1.5">
+                {provCounts.static > 0 && (
+                  <span className="text-xs px-1.5 py-0.5 rounded bg-indigo-50 text-indigo-700">
+                    {provCounts.static} static
+                  </span>
+                )}
+                {provCounts.runtime > 0 && (
+                  <span className="text-xs px-1.5 py-0.5 rounded bg-amber-50 text-amber-700">
+                    {provCounts.runtime} runtime
+                  </span>
+                )}
+                {provCounts.both > 0 && (
+                  <span className="text-xs px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-700">
+                    {provCounts.both} corroborated
+                  </span>
+                )}
+              </div>
             </div>
           )}
         </Section>
@@ -138,80 +245,20 @@ export default function NodePanel({
             </ul>
           </Section>
         )}
-
-        {/* Outbound neighbors */}
-        <Section title={`Outbound (${neighbors.outbound.length})`}>
-          {neighbors.outbound.length === 0 ? (
-            <p className="text-xs text-muted-foreground">None</p>
-          ) : (
-            <ul className="space-y-1">
-              {neighbors.outbound.slice(0, 20).map((e) => {
-                const tgt = nodeMap.get(e.target);
-                return (
-                  <li key={e.id}>
-                    <button
-                      onClick={() => tgt && onSelectNode(tgt.id)}
-                      className="w-full text-left text-xs flex items-center gap-1.5 hover:bg-muted rounded px-1 py-0.5 group"
-                    >
-                      <span className={`px-1 py-0.5 rounded text-xs font-medium ${edgeKindColor(e.kind)}`}>
-                        {e.kind}
-                      </span>
-                      <span className="flex-1 truncate font-mono">
-                        {tgt?.qualname ?? e.target}
-                      </span>
-                      <span className={`text-xs px-1 rounded ${PROVENANCE_BADGES[e.provenance]}`}>
-                        {e.provenance}
-                      </span>
-                    </button>
-                  </li>
-                );
-              })}
-              {neighbors.outbound.length > 20 && (
-                <li className="text-xs text-muted-foreground">
-                  …{neighbors.outbound.length - 20} more
-                </li>
-              )}
-            </ul>
-          )}
-        </Section>
-
-        {/* Inbound neighbors */}
-        <Section title={`Inbound (${neighbors.inbound.length})`}>
-          {neighbors.inbound.length === 0 ? (
-            <p className="text-xs text-muted-foreground">None</p>
-          ) : (
-            <ul className="space-y-1">
-              {neighbors.inbound.slice(0, 20).map((e) => {
-                const src = nodeMap.get(e.source);
-                return (
-                  <li key={e.id}>
-                    <button
-                      onClick={() => src && onSelectNode(src.id)}
-                      className="w-full text-left text-xs flex items-center gap-1.5 hover:bg-muted rounded px-1 py-0.5"
-                    >
-                      <span className={`px-1 py-0.5 rounded text-xs font-medium ${edgeKindColor(e.kind)}`}>
-                        {e.kind}
-                      </span>
-                      <span className="flex-1 truncate font-mono">
-                        {src?.qualname ?? e.source}
-                      </span>
-                      <span className={`text-xs px-1 rounded ${PROVENANCE_BADGES[e.provenance]}`}>
-                        {e.provenance}
-                      </span>
-                    </button>
-                  </li>
-                );
-              })}
-              {neighbors.inbound.length > 20 && (
-                <li className="text-xs text-muted-foreground">
-                  …{neighbors.inbound.length - 20} more
-                </li>
-              )}
-            </ul>
-          )}
-        </Section>
       </div>
     </div>
+  );
+}
+
+function hasAttrs(attrs: NodeAttributes): boolean {
+  return !!(
+    attrs.is_async ||
+    attrs.is_abstract ||
+    attrs.framework_entrypoint ||
+    attrs.method_kind ||
+    attrs.all_is_dynamic ||
+    (attrs.decorators?.length ?? 0) > 0 ||
+    (attrs.mro?.length ?? 0) > 1
   );
 }
 
@@ -237,20 +284,15 @@ function Row({ label, value, mono }: { label: string; value: string; mono?: bool
 
 function Badge({ label, color }: { label: string; color: string }) {
   return (
-    <span className={`inline-block text-xs px-1.5 py-0.5 rounded mr-1 mb-1 ${color}`}>
-      {label}
-    </span>
+    <span className={`inline-block text-xs px-1.5 py-0.5 rounded ${color}`}>{label}</span>
   );
 }
 
-function edgeKindColor(kind: string): string {
-  const map: Record<string, string> = {
-    imports: "bg-blue-100 text-blue-700",
-    calls: "bg-purple-100 text-purple-700",
-    instantiates: "bg-indigo-100 text-indigo-700",
-    inherits: "bg-orange-100 text-orange-700",
-    decorates: "bg-pink-100 text-pink-700",
-    defines: "bg-gray-100 text-gray-600",
-  };
-  return map[kind] ?? "bg-gray-100 text-gray-600";
+function Metric({ label, value, hint }: { label: string; value: number; hint?: string }) {
+  return (
+    <div className="text-center bg-gray-50 rounded py-2 px-1" title={hint}>
+      <div className="text-xl font-bold text-gray-800">{value}</div>
+      <div className="text-[10px] text-muted-foreground mt-0.5">{label}</div>
+    </div>
+  );
 }
