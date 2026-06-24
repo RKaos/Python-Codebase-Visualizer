@@ -69,9 +69,9 @@ export default function NodePanel({ node, document, onClose }: NodePanelProps) {
   const attrs = node.attributes;
 
   return (
-    <div className="w-72 h-full flex flex-col bg-white border-l shadow-lg overflow-hidden">
+    <div className="w-56 h-full flex flex-col bg-white border-l shadow-lg overflow-hidden">
       {/* Header */}
-      <div className="flex items-start justify-between p-4 border-b">
+      <div className="flex items-start justify-between p-3 border-b">
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 flex-wrap">
             <span>{KIND_ICONS[node.kind] ?? "◆"}</span>
@@ -264,8 +264,8 @@ function hasAttrs(attrs: NodeAttributes): boolean {
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <div className="p-4 border-b">
-      <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-2">
+    <div className="p-3 border-b">
+      <h3 className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground mb-1.5">
         {title}
       </h3>
       {children}
