@@ -290,9 +290,9 @@ function Badge({ label, color }: { label: string; color: string }) {
 
 function Metric({ label, value, hint }: { label: string; value: number; hint?: string }) {
   return (
-    <div className="text-center bg-gray-50 rounded py-2 px-1" title={hint}>
-      <div className="text-xl font-bold text-gray-800">{value}</div>
-      <div className="text-[10px] text-muted-foreground mt-0.5">{label}</div>
+    <div className="text-center bg-gray-50 rounded py-1.5 px-1" title={hint}>
+      <div className="text-base font-bold text-gray-800">{value}</div>
+      <div className="text-[9px] text-muted-foreground mt-0.5">{label}</div>
     </div>
   );
 }

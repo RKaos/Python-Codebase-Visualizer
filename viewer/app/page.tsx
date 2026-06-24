@@ -20,11 +20,11 @@ import NodePanel from "@/components/NodePanel";
 const GraphView = dynamic(() => import("@/components/GraphView"), { ssr: false });
 
 const DEFAULT_FILTERS: ViewFilters = {
-  // Default: show modules and packages only (progressive disclosure start state)
-  nodeKinds: new Set(["module", "package", "class", "function", "method", "coroutine", "external"]),
+  // method hidden by default — too many nodes on large repos; toggle via filter bar
+  nodeKinds: new Set(["module", "package", "class", "function", "coroutine", "external"]),
   edgeKinds: new Set(["imports", "calls", "instantiates", "inherits", "decorates"]),
   provenances: new Set(["static", "runtime", "both"]),
-  confidences: new Set(["resolved", "heuristic"]), // hide dynamic-unresolved by default for clean view
+  confidences: new Set(["resolved", "heuristic"]),
 };
 
 export default function HomePage() {
@@ -33,6 +33,7 @@ export default function HomePage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [viewMode, setViewMode] = useState<"full" | "explorer">("explorer");
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const loadGraph = useCallback(async (file: File) => {
@@ -157,9 +158,24 @@ pyviz analyze ./your-repo --out ./pyviz-out
           <span>{document.stats.n_classes} classes</span>
           <span>·</span>
           <span>{document.stats.n_functions} functions</span>
+          {/* View mode toggle */}
+          <div className="ml-3 flex rounded border overflow-hidden text-xs">
+            <button
+              onClick={() => setViewMode("full")}
+              className={`px-2 py-1 ${viewMode === "full" ? "bg-indigo-600 text-white" : "hover:bg-muted"}`}
+            >
+              Full
+            </button>
+            <button
+              onClick={() => setViewMode("explorer")}
+              className={`px-2 py-1 border-l ${viewMode === "explorer" ? "bg-indigo-600 text-white" : "hover:bg-muted"}`}
+            >
+              Explorer
+            </button>
+          </div>
           <button
             onClick={() => fileInputRef.current?.click()}
-            className="ml-3 px-2 py-1 text-xs rounded border hover:bg-muted"
+            className="ml-1 px-2 py-1 text-xs rounded border hover:bg-muted"
           >
             Load different file
           </button>
@@ -191,6 +207,7 @@ pyviz analyze ./your-repo --out ./pyviz-out
           searchQuery={searchQuery}
           selectedNodeId={selectedNodeId}
           onSelectNode={setSelectedNodeId}
+          viewMode={viewMode}
         />
         {selectedNode && (
           <NodePanel
@@ -209,7 +226,7 @@ pyviz analyze ./your-repo --out ./pyviz-out
         <LegendItem color="#f59e0b" label="runtime-only" dash="5 3" />
         <LegendItem color="#10b981" label="both (corroborated)" dash="none" bold />
         <span className="ml-2 opacity-50">·</span>
-        <span>Click module/package to expand definitions</span>
+        <span>Toggle <b>method</b> in filter bar to show/hide class methods</span>
       </div>
     </div>
   );
